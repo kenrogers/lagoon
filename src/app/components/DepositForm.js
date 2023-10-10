@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useContext } from "react";
-import { buildDepositPayload, buildDepositTransaction } from "sbtc-bridge-lib";
+import { DevEnvHelper, sbtcDepositHelper, TESTNET, TestnetHelper } from "sbtc";
 import { hex } from "@scure/base";
 
 import { UserContext } from "../UserContext";
@@ -16,6 +16,30 @@ export default function DepositForm() {
 
   const buildTransaction = async (e) => {
     e.preventDefault();
+    const test = new TestnetHelper();
+    const dev = new DevEnvHelper();
+
+    const utxos = await dev.fetchUtxos(
+      "bcrt1q3zl64vadtuh3vnsuhdgv6pm93n82ye8q6cr4ch"
+    );
+
+    // get sBTC deposit address from bridge API
+    const response = await fetch(
+      "https://bridge.sbtc.tech/bridge-api/testnet/v1/sbtc/init-ui"
+    );
+    const data = await response.json();
+
+    const tx = await sbtcDepositHelper({
+      network: TESTNET,
+      pegAddress: data.sbtcContractData.sbtcWalletAddress,
+      stacksAddress: userData.profile.stxAddress.testnet,
+      amountSats: satoshis,
+      feeRate: dev.estimateFeeRate("low"),
+      utxos,
+      bitcoinChangeAddress: "bcrt1q3zl64vadtuh3vnsuhdgv6pm93n82ye8q6cr4ch",
+    });
+    console.log(tx);
+    return;
     // The first thing we need to do is build our deposit payload
     // In order to do that we just need to pass in the network we are using
     // our authenticated Stacks principal
