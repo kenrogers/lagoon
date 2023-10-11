@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { uintCV, PostConditionMode } from "@stacks/transactions";
 import { openContractCall } from "@stacks/connect";
-import { StacksMocknet } from "@stacks/network";
+import { StacksMocknet, StacksTestnet } from "@stacks/network";
 
 export default function LendForm() {
   const [amount, setAmount] = useState(0);
@@ -22,7 +22,8 @@ export default function LendForm() {
       contractName,
       functionName,
       functionArgs,
-      network: new StacksMocknet(),
+      network: new StacksTestnet(),
+      // network: new StacksMocknet(),
       postConditionMode: PostConditionMode.Allow,
       appDetails: {
         name: "Lagoon",

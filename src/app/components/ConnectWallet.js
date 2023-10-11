@@ -7,7 +7,7 @@ export default function ConnectWallet({ userSession, userData, setUserData }) {
       userSession,
       network: StacksTestnet,
       appDetails: {
-        name: "BitLoan",
+        name: "Lagoon",
         icon: "https://freesvg.org/img/bitcoin.png",
       },
       onFinish: () => {
