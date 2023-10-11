@@ -25,12 +25,13 @@ export default function RootLayout({ children }) {
       setUserData(userSession.loadUserData());
     }
   }, []);
+
   return (
     <html lang="en">
       <body className={inter.className}>
         <div className="min-h-screen text-white bg-slate-800">
           {userData !== undefined ? (
-            <UserContext.Provider value={userData}>
+            <UserContext.Provider value={{ userData, userSession }}>
               <Navbar
                 userSession={userSession}
                 userData={userData}

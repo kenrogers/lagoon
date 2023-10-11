@@ -1,13 +1,21 @@
 "use client";
 
 import { useState, useContext } from "react";
-import { DevEnvHelper, sbtcDepositHelper, TESTNET, TestnetHelper } from "sbtc";
-import { hex } from "@scure/base";
+import {
+  DevEnvHelper,
+  sbtcDepositHelper,
+  TESTNET,
+  TestnetHelper,
+  WALLET_00,
+  WALLET_01,
+} from "sbtc";
+import { bytesToHex, hexToBytes } from "@noble/hashes/utils";
+import * as btc from "@scure/btc-signer";
 
 import { UserContext } from "../UserContext";
 
 export default function DepositForm() {
-  const userData = useContext(UserContext);
+  const { userData } = useContext(UserContext);
   const [satoshis, setSatoshis] = useState("");
 
   const handleInputChange = (event) => {
@@ -16,71 +24,46 @@ export default function DepositForm() {
 
   const buildTransaction = async (e) => {
     e.preventDefault();
-    const test = new TestnetHelper();
-    const dev = new DevEnvHelper();
+    // const testnet = new TestnetHelper();
+    const testnet = new DevEnvHelper();
 
-    const utxos = await dev.fetchUtxos(
-      "bcrt1q3zl64vadtuh3vnsuhdgv6pm93n82ye8q6cr4ch"
-    );
+    const bitcoinAccountA = await testnet.getBitcoinAccount(WALLET_00);
+
+    const btcAddress = bitcoinAccountA.wpkh.address;
+    const btcPublicKey = bitcoinAccountA.publicKey.buffer.toString();
+
+    let utxos = await testnet.fetchUtxos(btcAddress);
 
     // get sBTC deposit address from bridge API
-    const response = await fetch(
-      "https://bridge.sbtc.tech/bridge-api/testnet/v1/sbtc/init-ui"
-    );
-    const data = await response.json();
+    // const response = await fetch(
+    //   "https://bridge.sbtc.tech/bridge-api/testnet/v1/sbtc/init-ui"
+    // );
+    // const data = await response.json();
+
+    const pegAccount = await testnet.getBitcoinAccount(WALLET_00);
+    const pegAddress = pegAccount.tr.address;
 
     const tx = await sbtcDepositHelper({
-      network: TESTNET,
-      pegAddress: data.sbtcContractData.sbtcWalletAddress,
+      // network: TESTNET,
+      pegAddress,
       stacksAddress: userData.profile.stxAddress.testnet,
       amountSats: satoshis,
-      feeRate: dev.estimateFeeRate("low"),
+      feeRate: await testnet.estimateFeeRate("low"),
       utxos,
-      bitcoinChangeAddress: "bcrt1q3zl64vadtuh3vnsuhdgv6pm93n82ye8q6cr4ch",
+      bitcoinChangeAddress: btcAddress,
     });
-    console.log(tx);
-    return;
-    // The first thing we need to do is build our deposit payload
-    // In order to do that we just need to pass in the network we are using
-    // our authenticated Stacks principal
-    // whether or not we are using OP_DROP, no in this case, and the amount of satoshis we are depositing
-    if (userData) {
-      // const payload = await buildDepositPayload(
-      //   "testnet",
-      //   userData.profile.stxAddress.testnet
-      // );
-      // console.log(hex.decode(payload));
-
-      // get utxos from esplora API
-      const utxoResponse = await fetch(
-        `https://mempool.space/testnet/api/address/${userData.profile.btcAddress.p2wpkh.testnet}/utxo`
-      );
-      const utxos = await utxoResponse.json();
-
-      // get sBTC deposit address from bridge API
-      const response = await fetch(
-        "https://bridge.sbtc.tech/bridge-api/testnet/v1/sbtc/init-ui"
-      );
-      const data = await response.json();
-
-      const payload = {
-        principal: userData.profile.stxAddress.testnet,
-        amountSats: satoshis,
-        bitcoinAddress: userData.profile.btcAddress.p2wpkh.testnet,
-      };
-
-      console.log(utxos);
-
-      // next we need to build the transaction itself
-      const mintTx = await buildDepositTransaction(
-        "testnet",
-        data.sbtcContractData.sbtcWalletPublicKey,
-        payload,
-        data.btcFeeRates,
-        utxos
-      );
-      console.log(mintTx);
-    }
+    const psbt = tx.toPSBT();
+    const requestParams = {
+      publicKey: btcPublicKey,
+      hex: bytesToHex(psbt),
+    };
+    const txResponse = await window.btc.request("signPsbt", requestParams);
+    const formattedTx = btc.Transaction.fromPSBT(
+      hexToBytes(txResponse.result.hex)
+    );
+    formattedTx.finalize();
+    const finalTx = await testnet.broadcastTx(formattedTx);
+    console.log(finalTx);
   };
 
   return (
