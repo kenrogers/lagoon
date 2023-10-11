@@ -34,15 +34,12 @@ export default function WithdrawForm() {
       })
     );
 
-    console.log(message);
-
     openSignatureRequestPopup({
       message,
       userSession,
       network: new StacksTestnet(),
       onFinish: (data) => {
         setSignature(data.signature);
-        console.log(data);
       },
     });
   };

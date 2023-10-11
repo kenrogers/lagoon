@@ -24,27 +24,34 @@ export default function DepositForm() {
 
   const buildTransaction = async (e) => {
     e.preventDefault();
-    // const testnet = new TestnetHelper();
-    const testnet = new DevEnvHelper();
+    const testnet = new TestnetHelper();
+    // const testnet = new DevEnvHelper();
 
-    const bitcoinAccountA = await testnet.getBitcoinAccount(WALLET_00);
+    // setting BTC address for devnet
+    // const bitcoinAccountA = await testnet.getBitcoinAccount(WALLET_00);
+    // const btcAddress = bitcoinAccountA.wpkh.address;
+    // const btcPublicKey = bitcoinAccountA.publicKey.buffer.toString();
 
-    const btcAddress = bitcoinAccountA.wpkh.address;
-    const btcPublicKey = bitcoinAccountA.publicKey.buffer.toString();
+    // setting BTC address for testnet
+    const btcAddress = userData.profile.btcAddress.p2wpkh.testnet;
+    const btcPublicKey = userData.profile.btcPublicKey.p2wpkh;
 
     let utxos = await testnet.fetchUtxos(btcAddress);
 
+    // If we are working via testnet
     // get sBTC deposit address from bridge API
-    // const response = await fetch(
-    //   "https://bridge.sbtc.tech/bridge-api/testnet/v1/sbtc/init-ui"
-    // );
-    // const data = await response.json();
+    const response = await fetch(
+      "https://bridge.sbtc.tech/bridge-api/testnet/v1/sbtc/init-ui"
+    );
+    const data = await response.json();
+    const pegAddress = data.sbtcContractData.sbtcWalletAddress;
 
-    const pegAccount = await testnet.getBitcoinAccount(WALLET_00);
-    const pegAddress = pegAccount.tr.address;
-
+    // if we are working via devnet
+    // const pegAccount = await testnet.getBitcoinAccount(WALLET_00);
+    // const pegAddress = pegAccount.tr.address;
     const tx = await sbtcDepositHelper({
-      // network: TESTNET,
+      // comment this line out if working via devnet
+      network: TESTNET,
       pegAddress,
       stacksAddress: userData.profile.stxAddress.testnet,
       amountSats: satoshis,
@@ -52,6 +59,7 @@ export default function DepositForm() {
       utxos,
       bitcoinChangeAddress: btcAddress,
     });
+
     const psbt = tx.toPSBT();
     const requestParams = {
       publicKey: btcPublicKey,
