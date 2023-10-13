@@ -5,6 +5,7 @@ import {
   DevEnvHelper,
   sbtcDepositHelper,
   TESTNET,
+  REGTEST,
   TestnetHelper,
   WALLET_00,
   WALLET_01,
@@ -24,53 +25,67 @@ export default function DepositForm() {
 
   const buildTransaction = async (e) => {
     e.preventDefault();
-    const testnet = new TestnetHelper();
-    // const testnet = new DevEnvHelper();
+    // Helper for working with various API and RPC endpoints and getting and processing data
+    // Change this depending on what network you are working with
+    // const testnet = new TestnetHelper();
+    const testnet = new DevEnvHelper();
 
     // setting BTC address for devnet
-    // const bitcoinAccountA = await testnet.getBitcoinAccount(WALLET_00);
-    // const btcAddress = bitcoinAccountA.wpkh.address;
-    // const btcPublicKey = bitcoinAccountA.publicKey.buffer.toString();
+    // Because of some quirks with Leather, we need to pull our BTC wallet using the helper if we are on devnet
+    const bitcoinAccountA = await testnet.getBitcoinAccount(WALLET_00);
+    const btcAddress = bitcoinAccountA.wpkh.address;
+    const btcPublicKey = bitcoinAccountA.publicKey.buffer.toString();
 
     // setting BTC address for testnet
-    const btcAddress = userData.profile.btcAddress.p2wpkh.testnet;
-    const btcPublicKey = userData.profile.btcPublicKey.p2wpkh;
+    // here we are pulling directly from our authenticated wallet
+    // const btcAddress = userData.profile.btcAddress.p2wpkh.testnet;
+    // const btcPublicKey = userData.profile.btcPublicKey.p2wpkh;
 
     let utxos = await testnet.fetchUtxos(btcAddress);
 
     // If we are working via testnet
     // get sBTC deposit address from bridge API
-    const response = await fetch(
-      "https://bridge.sbtc.tech/bridge-api/testnet/v1/sbtc/init-ui"
-    );
-    const data = await response.json();
-    const pegAddress = data.sbtcContractData.sbtcWalletAddress;
+    // const response = await fetch(
+    //   "https://bridge.sbtc.tech/bridge-api/testnet/v1/sbtc/init-ui"
+    // );
+    // const data = await response.json();
+    // const pegAddress = data.sbtcContractData.sbtcWalletAddress;
 
-    // if we are working via devnet
-    // const pegAccount = await testnet.getBitcoinAccount(WALLET_00);
-    // const pegAddress = pegAccount.tr.address;
+    // if we are working via devnet we can use the helper to get the peg address, which is associated with the first wallet
+    const pegAccount = await testnet.getBitcoinAccount(WALLET_00);
+    const pegAddress = pegAccount.tr.address;
+
     const tx = await sbtcDepositHelper({
       // comment this line out if working via devnet
-      network: TESTNET,
+      network: REGTEST,
       pegAddress,
       stacksAddress: userData.profile.stxAddress.testnet,
       amountSats: satoshis,
+      // we can use the helper to get an estimated fee for our transaction
       feeRate: await testnet.estimateFeeRate("low"),
+      // the helper will automatically parse through these and use one or some as inputs
       utxos,
+      // where we want our remainder to be sent. UTXOs can only be spent as is, not divided, so we need a new input with the difference between our UTXO and how much we want to send
       bitcoinChangeAddress: btcAddress,
     });
 
+    // convert the returned ttransaction object into a PSBT for Leather to use
     const psbt = tx.toPSBT();
     const requestParams = {
       publicKey: btcPublicKey,
       hex: bytesToHex(psbt),
     };
+    // Call Leather API to sign the PSBT and finalize it
     const txResponse = await window.btc.request("signPsbt", requestParams);
     const formattedTx = btc.Transaction.fromPSBT(
       hexToBytes(txResponse.result.hex)
     );
     formattedTx.finalize();
+
+    // Broadcast it using the helper
     const finalTx = await testnet.broadcastTx(formattedTx);
+
+    // Get the transaction ID
     console.log(finalTx);
   };
 

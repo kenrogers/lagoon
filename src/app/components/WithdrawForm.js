@@ -7,6 +7,7 @@ import {
   sbtcWithdrawMessage,
   TESTNET,
   TestnetHelper,
+  WALLET_00,
 } from "sbtc";
 import { bytesToHex, hexToBytes } from "@noble/hashes/utils";
 import * as btc from "@scure/btc-signer";
@@ -26,53 +27,85 @@ export default function WithdrawForm() {
 
   const signMessage = async (e) => {
     e.preventDefault();
-    const message = bytesToHex(
-      sbtcWithdrawMessage({
-        network: TESTNET,
-        amountSats: satoshis,
-        bitcoinAddress: userData.profile.btcAddress.p2wpkh.testnet,
-      })
-    );
 
+    // const testnet = new TestnetHelper();
+    const testnet = new DevEnvHelper();
+
+    // First we need to sign a Stacks message to prove we own the sBTC
+    // The sbtc paclage can help us format this
+    const bitcoinAccountA = await testnet.getBitcoinAccount(WALLET_00);
+    const btcAddress = bitcoinAccountA.wpkh.address;
+
+    // setting BTC address for testnet
+    // here we are pulling directly from our authenticated wallet
+    // const btcAddress = userData.profile.btcAddress.p2wpkh.testnet;
+    // const btcPublicKey = userData.profile.btcPublicKey.p2wpkh;
+
+    const message = sbtcWithdrawMessage({
+      // network: TESTNET,
+      amountSats: satoshis,
+      bitcoinAddress: btcAddress,
+    });
+    // Now we can use Leather to sign that message
     openSignatureRequestPopup({
       message,
       userSession,
       network: new StacksTestnet(),
       onFinish: (data) => {
+        // Here we set the signature
         setSignature(data.signature);
       },
     });
   };
 
   const buildTransaction = async (e) => {
+    // Once the signature has been set, we can build and broadcast the transaction
     e.preventDefault();
-    const testnet = new TestnetHelper();
-    // const testnet = new DevEnvHelper();
+    // Helper for working with various API and RPC endpoints and getting and processing data
+    // Change this depending on what network you are working with
+    // const testnet = new TestnetHelper();
+    const testnet = new DevEnvHelper();
 
-    let utxos = await testnet.fetchUtxos(
-      userData.profile.btcAddress.p2wpkh.testnet
-    );
+    // setting BTC address for devnet
+    // Because of some quirks with Leather, we need to pull our BTC wallet using the helper if we are on devnet
+    const bitcoinAccountA = await testnet.getBitcoinAccount(WALLET_00);
+    const btcAddress = bitcoinAccountA.wpkh.address;
+    const btcPublicKey = bitcoinAccountA.publicKey.buffer.toString();
 
+    // setting BTC address for testnet
+    // here we are pulling directly from our authenticated wallet
+    // const btcAddress = userData.profile.btcAddress.p2wpkh.testnet;
+    // const btcPublicKey = userData.profile.btcPublicKey.p2wpkh;
+
+    let utxos = await testnet.fetchUtxos(btcAddress);
+
+    // If we are working via testnet
     // get sBTC deposit address from bridge API
-    const response = await fetch(
-      "https://bridge.sbtc.tech/bridge-api/testnet/v1/sbtc/init-ui"
-    );
-    const data = await response.json();
+    // const response = await fetch(
+    //   "https://bridge.sbtc.tech/bridge-api/testnet/v1/sbtc/init-ui"
+    // );
+    // const data = await response.json();
+    // const pegAddress = data.sbtcContractData.sbtcWalletAddress;
+
+    // if we are working via devnet we can use the helper to get the peg address, which is associated with the first wallet
+    const pegAccount = await testnet.getBitcoinAccount(WALLET_00);
+    const pegAddress = pegAccount.tr.address;
 
     const tx = await sbtcWithdrawHelper({
-      network: TESTNET,
-      pegAddress: data.sbtcContractData.sbtcWalletAddress,
-      bitcoinAddress: userData.profile.btcAddress.p2wpkh.testnet,
+      // comment this line out if working via devnet
+      // network: TESTNET,
+      pegAddress,
+      bitcoinAddress: btcAddress,
       amountSats: satoshis,
       signature,
       feeRate: await testnet.estimateFeeRate("low"),
       fulfillmentFeeSats: 2000,
       utxos,
-      bitcoinChangeAddress: userData.profile.btcAddress.p2wpkh.testnet,
+      bitcoinChangeAddress: btcAddress,
     });
     const psbt = tx.toPSBT();
     const requestParams = {
-      publicKey: userData.profile.btcPublicKey.p2wpkh.testnet,
+      publicKey: btcPublicKey,
       hex: bytesToHex(psbt),
     };
     const txResponse = await window.btc.request("signPsbt", requestParams);

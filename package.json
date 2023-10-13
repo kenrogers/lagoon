@@ -18,8 +18,8 @@
     "next": "latest",
     "react": "latest",
     "react-dom": "latest",
-    "sbtc": "^0.1.5",
-    "sbtc-bridge-lib": "file:~/Code/sbtc-bridge-lib-1.1.2.tgz"
+    "sbtc": "^0.1.6",
+    "sbtc-bridge-lib": "^1.1.8"
   },
   "devDependencies": {
     "autoprefixer": "latest",
