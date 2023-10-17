@@ -57,7 +57,7 @@ export default function DepositForm() {
 
     const tx = await sbtcDepositHelper({
       // comment this line out if working via devnet
-      network: REGTEST,
+      // network: TESTNET,
       pegAddress,
       stacksAddress: userData.profile.stxAddress.testnet,
       amountSats: satoshis,

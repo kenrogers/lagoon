@@ -14,7 +14,7 @@ import * as btc from "@scure/btc-signer";
 import { openSignatureRequestPopup } from "@stacks/connect";
 
 import { UserContext } from "../UserContext";
-import { StacksTestnet } from "@stacks/network";
+import { StacksTestnet, StacksMocknet } from "@stacks/network";
 
 export default function WithdrawForm() {
   const { userData, userSession } = useContext(UserContext);
@@ -32,14 +32,13 @@ export default function WithdrawForm() {
     const testnet = new DevEnvHelper();
 
     // First we need to sign a Stacks message to prove we own the sBTC
-    // The sbtc paclage can help us format this
+    // The sbtc package can help us format this
     const bitcoinAccountA = await testnet.getBitcoinAccount(WALLET_00);
     const btcAddress = bitcoinAccountA.wpkh.address;
 
     // setting BTC address for testnet
     // here we are pulling directly from our authenticated wallet
     // const btcAddress = userData.profile.btcAddress.p2wpkh.testnet;
-    // const btcPublicKey = userData.profile.btcPublicKey.p2wpkh;
 
     const message = sbtcWithdrawMessage({
       // network: TESTNET,
@@ -50,7 +49,7 @@ export default function WithdrawForm() {
     openSignatureRequestPopup({
       message,
       userSession,
-      network: new StacksTestnet(),
+      network: new StacksMocknet(),
       onFinish: (data) => {
         // Here we set the signature
         setSignature(data.signature);
