@@ -22,7 +22,7 @@ export default function LendForm() {
       contractName,
       functionName,
       functionArgs,
-      network: new StacksTestnet(),
+      network: new StacksMocknet(),
       // network: new StacksMocknet(),
       postConditionMode: PostConditionMode.Allow,
       appDetails: {
